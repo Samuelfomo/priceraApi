@@ -1,6 +1,6 @@
 const express = require('express');
-const {Lexicon} = require("../lib/class/Lexicon");
-const R = require("../lib/tool/Reply");
+const {Lexicon} = require("../src/class/Lexicon");
+const R = require("../src/tools/Reply");
 
 const router = express.Router();
 
@@ -16,6 +16,7 @@ router.post('/add', async (req, res) => {
         const reference = Lexicon.toOpenCamelCase(truncatedEnglish);
 
         const lexicon = new Lexicon(reference, truncatedEnglish, french, portable, null, guid);
+        console.log(lexicon);
 
         // let entry;
         // if (guid) {

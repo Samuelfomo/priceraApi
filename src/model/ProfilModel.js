@@ -1,7 +1,7 @@
 const {DataTypes} = require("sequelize")
 const path = require('path');
 const paths = require('../../config/paths');
-const W = require(path.join(paths.TOOL_DIR, 'Watcher'));
+const G = require(path.join(paths.TOOL_DIR, 'Glossary'));
 
 const { sequelize } = require(path.join(paths.MDL_DIR, 'odbc'));
 
@@ -56,7 +56,7 @@ ProfilModel.initialize = async function () {
         await sequelize.authenticate();
 
         // Synchronises the model (creates the table if it doesn't exist)
-        await ProfilModel.sync({alter: true, force: W.development});
+        await ProfilModel.sync({alter: true, force: G.development});
 
         console.log('ProfilModel synchronized successfully');
     } catch (error) {

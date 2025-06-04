@@ -1,7 +1,7 @@
 const {DataTypes} = require("sequelize");
 const path = require('path');
 const paths = require('../../config/paths');
-const W = require(path.join(paths.TOOL_DIR, 'Watcher'));
+const D = require(path.join(paths.TOOL_DIR, 'Glossary'));
 
 const { sequelize } = require(path.join(paths.MDL_DIR, 'odbc'));
 
@@ -62,7 +62,7 @@ LexiconModel.initialize = async function () {
         await sequelize.authenticate();
 
         // Synchronises the model (creates the table if it doesn't exist)
-        await LexiconModel.sync({alter: true, force: W.development});
+        await LexiconModel.sync({alter: true, force: D.development});
 
         console.log('LexiconModel synchronized successfully');
     } catch (error) {

@@ -1,9 +1,10 @@
 const path = require('path');
 const paths = require('../../config/paths');
 
-const Db = require(path.join(paths.MDL_DIR, 'Db'));
+const Db = require(path.join(paths.MDL_DIR, 'Database'));
 const LexiconModel = require(path.join(paths.MDL_DIR, 'LexiconModel'));
-const W = require(path.join(paths.TOOL_DIR, 'Watcher'));
+const W = require(path.join(paths.TOOL_DIR, 'W'));
+const G = require(path.join(paths.TOOL_DIR, 'Glossary'));
 
 class Lexicon {
     constructor(reference, english, french, portable = false, id = null, guid = null) {
@@ -32,7 +33,7 @@ class Lexicon {
         const existingEntry = await LexiconModel.findOne({
             where: { reference: this.reference }
         });
-        await W.isOccur(existingEntry, W.duplicate);
+        await W.isOccur(existingEntry, G.duplicate);
     }
 
     /**
@@ -84,6 +85,7 @@ class Lexicon {
 
             let entry;
             if (!this.guid) {
+                console.log('Creating Lexicon');
                 // Verifier les doubloons lors de la création
                 await this._duplicate();
 
@@ -91,6 +93,7 @@ class Lexicon {
                 const db = new Db();
                 const guid = await db.generateGuid(LexiconModel, 6);
 
+                console.log('Creating guid', guid);
                 entry = await LexiconModel.create({
                     guid: guid,
                     reference: this.reference,
@@ -105,7 +108,7 @@ class Lexicon {
                     where: { guid: this.guid }
                 });
 
-                await W.isOccur(!existingEntry, W.errorGuid);
+                await W.isOccur(!existingEntry, G.errorGuid);
 
                 // Met à jour l'entrée existante
                 await LexiconModel.update(
@@ -176,7 +179,7 @@ class Lexicon {
                 where: { guid: this.guid }
             });
 
-            await W.isOccur(!existingEntry, W.errorGuid);
+            await W.isOccur(!existingEntry, G.errorGuid);
 
             // Delete the entry
             const deleted = await LexiconModel.destroy({
@@ -184,7 +187,7 @@ class Lexicon {
             });
 
             // Double check if deletion was successful
-            await W.isOccur(deleted !== 1, W.errorDeleted); // Vérification du nombre d'entrées supprimées
+            await W.isOccur(deleted !== 1, G.errorDeleted); // Vérification du nombre d'entrées supprimées
         } catch (error) {
             throw error;
         }

@@ -1,7 +1,7 @@
 const {DataTypes} = require("sequelize")
 const path = require('path');
 const paths = require('../../config/paths');
-const W = require(path.join(paths.TOOL_DIR, 'Watcher'));
+const G = require(path.join(paths.TOOL_DIR, 'Glossary'));
 const { sequelize } = require(path.join(paths.MDL_DIR, 'odbc'));
 
 const ProductModel = sequelize.define('Product', {
@@ -344,7 +344,7 @@ ProductModel.initialize = async function () {
         console.log('Database connection established successfully');
 
         // Synchronisation du modèle (crée la table si elle n'existe pas)
-        await ProductModel.sync({alter: true, force: W.development});
+        await ProductModel.sync({alter: true, force: G.development});
         console.log('ProductModel synchronized successfully');
 
         // Création d'index pour les performances (PostgreSQL uniquement)

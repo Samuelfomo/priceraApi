@@ -115,7 +115,7 @@ class AccountModel extends Database {
      * @returns {Promise<Object|null>}
      */
     async find(id) {
-        let connection = null;
+        // let connection = null;
         try {
             await this.testConnection();
             const account = await this.getById(this.model, id);
@@ -124,9 +124,10 @@ class AccountModel extends Database {
             console.error('Erreur lors de la recherche par ID:', error);
             throw error;
         } finally {
-            if (connection) {
-                await this.close();
-            }
+            await this.close();
+            // if (connection) {
+            //     await this.close();
+            // }
         }
     }
 
@@ -209,9 +210,9 @@ class AccountModel extends Database {
 
     /**
      * Find by integer value avec gestion de connexion
-     * @param {string} attribute - Attribute name
-     * @param {number} value - Integer value
-     * @returns {Promise<Array>}
+     * @param attribute
+     * @param value
+     * @returns {Promise<*>}
      */
     async findByInt(attribute, value) {
         try {

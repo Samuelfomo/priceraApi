@@ -38,7 +38,7 @@ const UserModel = sequelize.define('User', {
     account: {
         type: DataTypes.INTEGER,
         references: {
-            model: 'account',
+            model:`${G.tablePrefix}_account`,
             key: 'id'
         },
         allowNull: false,

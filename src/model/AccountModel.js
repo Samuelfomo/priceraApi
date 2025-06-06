@@ -19,7 +19,6 @@ const Database = require("./Database");
  * @property {Date|null} deletedAt
  * @property {Date|null} lastLogin
  */
-
 class AccountModel extends Database {
 
     constructor() {
@@ -62,7 +61,7 @@ class AccountModel extends Database {
                 type: DataTypes.INTEGER,
                 allowNull: false,
                 references: {
-                    model: 'company',
+                    model: `${G.tablePrefix}_company`,
                     key: 'id'
                 },
                 comment: "Company foreign key"
@@ -103,67 +102,81 @@ class AccountModel extends Database {
             updatedAt: 'updated',
             hooks: {
                 beforeSave: async (instance) => {
-                    await this.dataControl(instance);
+                    await this._dataControl(instance);
                 }
             }
         });
     }
 
     /**
-     * Find by ID avec gestion de connexion
+     * Retourne le modèle Sequelize pour l'initialisation des tables
+     * @returns {Object} - Modèle Sequelize
+     */
+    getModel() {
+        return this.model;
+    }
+
+    /**
+     * Find by ID
      * @param {number} id - Account ID
+     * @param {Object} options - Options de connexion
      * @returns {Promise<Object|null>}
      */
-    async find(id) {
-        // let connection = null;
+    async find(id, options = {}) {
         try {
-            await this.testConnection();
-            const account = await this.getById(this.model, id);
+            const account = await this.getById(this.model, id, options);
             return account && !account.deleted ? account : null;
         } catch (error) {
             console.error('Erreur lors de la recherche par ID:', error);
             throw error;
-        } finally {
-            await this.close();
-            // if (connection) {
-            //     await this.close();
-            // }
         }
     }
 
     /**
-     * Find by single attribute avec gestion de connexion
+     * Find by single attribute
      * @param {string} attribute - Attribute name
      * @param {*} value - Attribute value
+     * @param {Object} options - Options de connexion
      * @returns {Promise<Object|null>}
      */
-    async findByAttribute(attribute, value) {
+    async findByAttribute(attribute, value, options = {}) {
         try {
-            await this.testConnection();
-            const result = await this.model.findOne({
+            const { connection } = await this.getConnection(options);
+
+            const queryOptions = {
                 where: {
                     [attribute]: value,
                     deleted: false
                 }
-            });
+            };
+
+            if (options.isTransaction || this._isTransactionActive) {
+                queryOptions.transaction = connection;
+            }
+
+            const result = await this.model.findOne(queryOptions);
             return result ? result.toJSON() : null;
         } catch (error) {
             console.error('Erreur lors de la recherche par attribut:', error);
             throw error;
-        } finally {
-            await this.close();
+        }
+        finally {
+            if (!options.isTransaction && !this._isTransactionActive) {
+                await this.closePool();
+            }
         }
     }
 
     /**
-     * Find multiple records avec gestion de connexion
+     * Find multiple records
      * @param {Object} criteria - Search criteria
      * @param {string} operator - 'AND' or 'OR'
+     * @param {Object} options - Options de connexion
      * @returns {Promise<Array>}
      */
-    async findMultiple(criteria, operator = 'AND') {
+    async findMultiple(criteria, operator = 'AND', options = {}) {
         try {
-            await this.testConnection();
+            const { connection } = await this.getConnection(options);
             const { Op } = require("sequelize");
             const whereClause = { deleted: false };
 
@@ -173,149 +186,260 @@ class AccountModel extends Database {
                 Object.assign(whereClause, criteria);
             }
 
-            const results = await this.model.findAll({ where: whereClause });
+            const queryOptions = { where: whereClause };
+            if (options.isTransaction || this._isTransactionActive) {
+                queryOptions.transaction = connection;
+            }
+
+            const results = await this.model.findAll(queryOptions);
             return results.map(result => result.toJSON());
         } catch (error) {
             console.error('Erreur lors de la recherche multiple:', error);
             throw error;
-        } finally {
-            await this.close();
+        }
+        finally {
+            if (!options.isTransaction && !this._isTransactionActive) {
+                await this.closePool();
+            }
         }
     }
 
     /**
-     * Find by string pattern avec gestion de connexion
+     * Find by string pattern
      * @param {string} attribute - Attribute name
      * @param {string} pattern - Search pattern
+     * @param {Object} options - Options de connexion
      * @returns {Promise<Array>}
      */
-    async findByString(attribute, pattern) {
+    async findByString(attribute, pattern, options = {}) {
         try {
-            await this.testConnection();
+            const { connection } = await this.getConnection(options);
             const { Op } = require("sequelize");
-            const results = await this.model.findAll({
+
+            const queryOptions = {
                 where: {
                     [attribute]: { [Op.like]: `%${pattern}%` },
                     deleted: false
                 }
-            });
+            };
+
+            if (options.isTransaction || this._isTransactionActive) {
+                queryOptions.transaction = connection;
+            }
+
+            const results = await this.model.findAll(queryOptions);
             return results.map(result => result.toJSON());
         } catch (error) {
             console.error('Erreur lors de la recherche par chaîne:', error);
             throw error;
-        } finally {
-            await this.close();
+        }
+        finally {
+            if (!options.isTransaction && !this._isTransactionActive) {
+                await this.closePool();
+            }
         }
     }
 
     /**
-     * Find by integer value avec gestion de connexion
-     * @param attribute
-     * @param value
-     * @returns {Promise<*>}
+     * Find by integer value
+     * @param {string} attribute - Attribute name
+     * @param {number} value - Integer value
+     * @param {Object} options - Options de connexion
+     * @returns {Promise<Array>}
      */
-    async findByInt(attribute, value) {
+    async findByInt(attribute, value, options = {}) {
         try {
-            await this.testConnection();
-            const results = await this.model.findAll({
+            const { connection } = await this.getConnection(options);
+
+            const queryOptions = {
                 where: {
                     [attribute]: value,
                     deleted: false
                 }
-            });
+            };
+
+            if (options.isTransaction || this._isTransactionActive) {
+                queryOptions.transaction = connection;
+            }
+
+            const results = await this.model.findAll(queryOptions);
             return results.map(result => result.toJSON());
         } catch (error) {
             console.error('Erreur lors de la recherche par entier:', error);
             throw error;
-        } finally {
-            await this.close();
+        }
+        finally {
+            if (!options.isTransaction && !this._isTransactionActive) {
+                await this.closePool();
+            }
         }
     }
 
     /**
-     * Create new account avec gestion de connexion
+     * Create new account
      * @param {Object} data - Account data
+     * @param {Object} options - Options de connexion
      * @returns {Promise<Object>}
      */
-    async create(data) {
+    async create(data, options = {}) {
         try {
-            await this.testConnection();
-
-            // Générer le GUID automatiquement
+            // Générer le GUID automatiquement si pas fourni
             if (!data.guid) {
-                data.guid = await this.generateGuid(this.model, 6);
+                data.guid = await this.generateGuid(this.model, 6, null, options);
             }
 
-            const newAccount = await this.model.create(data);
-            return newAccount.toJSON();
+            return await this.createRecord(this.model, data, options);
         } catch (error) {
             console.error('Erreur lors de la création:', error);
             throw error;
-        } finally {
-            await this.close();
         }
     }
 
     /**
-     * Update account avec gestion de connexion
+     * Update account
      * @param {number} id - Account ID
      * @param {Object} data - Update data
+     * @param {Object} options - Options de connexion
      * @returns {Promise<Object|null>}
      */
-    async update(id, data) {
+    async update(id, data, options = {}) {
         try {
-            await this.testConnection();
+            const { connection } = await this.getConnection(options);
 
-            const [updatedRowsCount] = await this.model.update(data, {
+            const updateOptions = {
                 where: { id: id, deleted: false }
-            });
+            };
+
+            if (options.isTransaction || this._isTransactionActive) {
+                updateOptions.transaction = connection;
+            }
+
+            const [updatedRowsCount] = await this.model.update(data, updateOptions);
 
             if (updatedRowsCount > 0) {
-                const updatedAccount = await this.model.findByPk(id);
-                return updatedAccount ? updatedAccount.toJSON() : null;
+                return await this.find(id, options);
             }
 
             return null;
         } catch (error) {
             console.error('Erreur lors de la mise à jour:', error);
             throw error;
-        } finally {
-            await this.close();
+        }
+        finally {
+            if (!options.isTransaction && !this._isTransactionActive) {
+                await this.closePool();
+            }
         }
     }
 
     /**
-     * Soft delete avec gestion de connexion
+     * Soft delete
      * @param {number} id - Account ID
+     * @param {Object} options - Options de connexion
      * @returns {Promise<boolean>}
      */
-    async softDelete(id) {
+    async softDelete(id, options = {}) {
         try {
-            await this.testConnection();
-
-            const [updatedRowsCount] = await this.model.update({
+            const result = await this.update(id, {
                 deleted: true,
                 active: false,
                 deletedAt: new Date()
-            }, {
-                where: { id: id, deleted: false }
-            });
+            }, options);
 
-            return updatedRowsCount > 0;
+            return result !== null;
         } catch (error) {
             console.error('Erreur lors de la suppression douce:', error);
             throw error;
-        } finally {
-            await this.close();
         }
+    }
+
+    /**
+     * Get all accounts avec pagination
+     * @param {Object} queryOptions - Query options
+     * @param {Object} options - Options de connexion
+     * @returns {Promise<Object>}
+     */
+    async findAll(queryOptions = {}, options = {}) {
+        try {
+            const { connection } = await this.getConnection(options);
+            const {
+                page = 1,
+                limit = 10,
+                where = {},
+                order = [['id', 'ASC']],
+                include = []
+            } = queryOptions;
+
+            const offset = (page - 1) * limit;
+            const defaultWhere = { deleted: false, ...where };
+
+            const findOptions = {
+                where: defaultWhere,
+                order,
+                limit,
+                offset,
+                include,
+                distinct: true
+            };
+
+            if (options.isTransaction || this._isTransactionActive) {
+                findOptions.transaction = connection;
+            }
+
+            const { count, rows } = await this.model.findAndCountAll(findOptions);
+
+            return {
+                data: rows.map(row => row.toJSON()),
+                pagination: {
+                    page,
+                    limit,
+                    total: count,
+                    pages: Math.ceil(count / limit)
+                }
+            };
+        } catch (error) {
+            console.error('Erreur lors de la recherche paginée:', error);
+            throw error;
+        }
+        finally {
+            if (!options.isTransaction && !this._isTransactionActive) {
+                await this.closePool();
+            }
+        }
+    }
+
+    /**
+     * Bulk create avec transaction
+     * @param {Array} accounts - Array of account data
+     * @param {Object} options - Options de connexion
+     * @returns {Promise<Array>}
+     */
+    async bulkCreate(accounts, options = {}) {
+        return await this.executeInTransaction(async (transaction) => {
+            // Générer des GUIDs pour les comptes qui n'en ont pas
+            for (let account of accounts) {
+                if (!account.guid) {
+                    account.guid = await this.generateGuid(this.model, 6, null, {
+                        connection: transaction,
+                        isTransaction: true
+                    });
+                }
+            }
+
+            const createOptions = { transaction, returning: true };
+            const results = await this.model.bulkCreate(accounts, createOptions);
+            return results.map(result => result.toJSON());
+        });
     }
 
     /**
      * Data validation before save
      * @param {Object} instance - Model instance
      * @throws {Error} If validation fails
+     * @private
      */
-    async dataControl(instance) {
+    async _dataControl(instance) {
+        const { Op } = require("sequelize");
         const errors = [];
 
         // Basic validations
@@ -333,7 +457,7 @@ class AccountModel extends Database {
             const existingByGuid = await this.model.findOne({
                 where: {
                     guid: instance.guid,
-                    id: { [this.getInstance().Op.ne]: instance.id || 0 }
+                    id: { [Op.ne]: instance.id || 0 }
                 }
             });
             if (existingByGuid) errors.push('GUID already exists');
@@ -343,7 +467,7 @@ class AccountModel extends Database {
             const existingByCode = await this.model.findOne({
                 where: {
                     code: instance.code,
-                    id: { [this.getInstance().Op.ne]: instance.id || 0 }
+                    id: { [Op.ne]: instance.id || 0 }
                 }
             });
             if (existingByCode) errors.push('Code already exists');
@@ -355,18 +479,28 @@ class AccountModel extends Database {
     }
 
     /**
-     * Static initialization method
+     * Health check pour ce modèle
+     * @returns {Promise<Object>}
      */
-    async initialize() {
+    async modelHealthCheck() {
         try {
-            await this.testConnection();
-            await this.model.sync({ alter: true, force: G.development });
-            console.log('AccountModel synchronized successfully');
+            const poolStats = this.getPoolStats();
+            const accountCount = await this.model.count({ where: { deleted: false } });
+
+            return {
+                model: 'AccountModel',
+                poolStats,
+                accountCount,
+                modelStatus: 'healthy',
+                timestamp: new Date().toISOString()
+            };
         } catch (error) {
-            console.error('Unable to synchronize the AccountModel:', error);
-            throw error;
-        } finally {
-            await this.close();
+            return {
+                model: 'AccountModel',
+                modelStatus: 'unhealthy',
+                error: error.message,
+                timestamp: new Date().toISOString()
+            };
         }
     }
 }
@@ -375,410 +509,3 @@ class AccountModel extends Database {
 const accountModelInstance = new AccountModel();
 
 module.exports = accountModelInstance;
-
-// const { DataTypes } = require("sequelize");
-// const path = require('path');
-// const paths = require('../../config/paths');
-// const G = require(path.join(paths.TOOL_DIR, 'Glossary'));
-// const Database = require("./Database");
-//
-// /**
-//  * Model class avec gestion optimisée des connexions
-//  * @class AccountModel
-//  * @extends Database
-//  */
-// class AccountModel extends Database {
-//
-//     constructor() {
-//         super();
-//         this.sequelizeModel = null;
-//         this._initModel();
-//     }
-//
-//     /**
-//      * Initialise le modèle Sequelize
-//      * @private
-//      */
-//     _initModel() {
-//         const sequelizeInstance = this.getInstance();
-//
-//         this.sequelizeModel = sequelizeInstance.define('Account', {
-//             id: {
-//                 type: DataTypes.INTEGER,
-//                 primaryKey: true,
-//                 autoIncrement: true,
-//                 comment: "Account ID"
-//             },
-//             guid: {
-//                 type: DataTypes.INTEGER,
-//                 unique: {
-//                     name: 'UNIQUE-ACCOUNT-GUID',
-//                     msg: 'The GUID of Account must be unique'
-//                 },
-//                 allowNull: false,
-//                 comment: 'GUID'
-//             },
-//             code: {
-//                 type: DataTypes.STRING(128),
-//                 unique: {
-//                     name: 'UNIQUE-ACCOUNT-CODE',
-//                     msg: 'The CODE of Account must be unique'
-//                 },
-//                 allowNull: false,
-//                 comment: "CODE"
-//             },
-//             company: {
-//                 type: DataTypes.INTEGER,
-//                 allowNull: false,
-//                 references: {
-//                     model: 'company',
-//                     key: 'id'
-//                 },
-//                 comment: "Company foreign key"
-//             },
-//             active: {
-//                 type: DataTypes.BOOLEAN,
-//                 defaultValue: false,
-//                 allowNull: false,
-//                 comment: 'Active Account'
-//             },
-//             blocked: {
-//                 type: DataTypes.BOOLEAN,
-//                 defaultValue: false,
-//                 allowNull: false,
-//                 comment: 'Blocked Account'
-//             },
-//             deleted: {
-//                 type: DataTypes.BOOLEAN,
-//                 defaultValue: false,
-//                 allowNull: false,
-//                 comment: 'Soft delete flag'
-//             },
-//             deletedAt: {
-//                 type: DataTypes.DATE,
-//                 allowNull: true,
-//                 comment: 'Deletion timestamp'
-//             },
-//             lastLogin: {
-//                 type: DataTypes.DATE,
-//                 allowNull: true,
-//                 field: 'last_login',
-//                 comment: 'Last login timestamp'
-//             }
-//         }, {
-//             tableName: `${G.tablePrefix}_account`,
-//             timestamps: true,
-//             createdAt: 'created',
-//             updatedAt: 'updated',
-//             hooks: {
-//                 beforeSave: async (instance) => {
-//                     await this.dataControl(instance);
-//                 }
-//             }
-//         });
-//     }
-//
-//     /**
-//      * Find by ID avec gestion de connexion
-//      * @param {number} id - Account ID
-//      * @returns {Promise<Object|null>}
-//      */
-//     async find(id) {
-//         return await this.executeWithConnection(async () => {
-//             const account = await this.getById(this.sequelizeModel, id);
-//             return account && !account.deleted ? account : null;
-//         });
-//     }
-//
-//     /**
-//      * Find by single attribute avec gestion de connexion
-//      * @param {string} attribute - Attribute name
-//      * @param {*} value - Attribute value
-//      * @returns {Promise<Object|null>}
-//      */
-//     async findByAttribute(attribute, value) {
-//         return await this.executeWithConnection(async () => {
-//             const result = await this.sequelizeModel.findOne({
-//                 where: {
-//                     [attribute]: value,
-//                     deleted: false
-//                 }
-//             });
-//             return result ? result.toJSON() : null;
-//         });
-//     }
-//
-//     /**
-//      * Find multiple records avec gestion de connexion
-//      * @param {Object} criteria - Search criteria
-//      * @param {string} operator - 'AND' or 'OR'
-//      * @returns {Promise<Array>}
-//      */
-//     async findMultiple(criteria, operator = 'AND') {
-//         return await this.executeWithConnection(async () => {
-//             const { Op } = require("sequelize");
-//             const whereClause = { deleted: false };
-//
-//             if (operator === 'OR') {
-//                 whereClause[Op.or] = criteria;
-//             } else {
-//                 Object.assign(whereClause, criteria);
-//             }
-//
-//             const results = await this.sequelizeModel.findAll({ where: whereClause });
-//             return results.map(result => result.toJSON());
-//         });
-//     }
-//
-//     /**
-//      * Find by string pattern avec gestion de connexion
-//      * @param {string} attribute - Attribute name
-//      * @param {string} pattern - Search pattern
-//      * @returns {Promise<Array>}
-//      */
-//     async findByString(attribute, pattern) {
-//         return await this.executeWithConnection(async () => {
-//             const { Op } = require("sequelize");
-//             const results = await this.sequelizeModel.findAll({
-//                 where: {
-//                     [attribute]: { [Op.like]: `%${pattern}%` },
-//                     deleted: false
-//                 }
-//             });
-//             return results.map(result => result.toJSON());
-//         });
-//     }
-//
-//     /**
-//      * Find by integer value avec gestion de connexion
-//      * @param {string} attribute - Attribute name
-//      * @param {number} value - Integer value
-//      * @returns {Promise<Array>}
-//      */
-//     async findByInt(attribute, value) {
-//         return await this.executeWithConnection(async () => {
-//             const results = await this.sequelizeModel.findAll({
-//                 where: {
-//                     [attribute]: value,
-//                     deleted: false
-//                 }
-//             });
-//             return results.map(result => result.toJSON());
-//         });
-//     }
-//
-//     /**
-//      * Create new account avec transaction
-//      * @param {Object} data - Account data
-//      * @returns {Promise<Object>}
-//      */
-//     async create(data) {
-//         return await this.executeTransaction(async (transaction) => {
-//             // Générer un GUID si non fourni
-//             if (!data.guid) {
-//                 data.guid = await this.generateGuid(this.sequelizeModel, 8);
-//             }
-//
-//             const result = await this.sequelizeModel.create(data, { transaction });
-//             return result.toJSON();
-//         });
-//     }
-//
-//     /**
-//      * Update account avec transaction
-//      * @param {number} id - Account ID
-//      * @param {Object} data - Update data
-//      * @returns {Promise<Object>}
-//      */
-//     async update(id, data) {
-//         return await this.executeTransaction(async (transaction) => {
-//             const [updatedRowsCount] = await this.sequelizeModel.update(data, {
-//                 where: { id, deleted: false },
-//                 transaction
-//             });
-//
-//             if (updatedRowsCount === 0) {
-//                 throw new Error('Account not found or already deleted');
-//             }
-//
-//             // Récupérer l'enregistrement mis à jour
-//             const updatedAccount = await this.sequelizeModel.findByPk(id, { transaction });
-//             return updatedAccount ? updatedAccount.toJSON() : null;
-//         });
-//     }
-//
-//     /**
-//      * Soft delete avec transaction
-//      * @param {number} id - Account ID
-//      * @returns {Promise<Object>}
-//      */
-//     async softDelete(id) {
-//         return await this.update(id, {
-//             deleted: true,
-//             active: false,
-//             deletedAt: new Date()
-//         });
-//     }
-//
-//     /**
-//      * Bulk create avec transaction
-//      * @param {Array} accounts - Array of account data
-//      * @returns {Promise<Array>}
-//      */
-//     async bulkCreate(accounts) {
-//         return await this.executeTransaction(async (transaction) => {
-//             // Générer des GUIDs pour les comptes qui n'en ont pas
-//             for (let account of accounts) {
-//                 if (!account.guid) {
-//                     account.guid = await this.generateGuid(this.sequelizeModel, 8);
-//                 }
-//             }
-//
-//             const results = await this.sequelizeModel.bulkCreate(accounts, {
-//                 transaction,
-//                 returning: true
-//             });
-//             return results.map(result => result.toJSON());
-//         });
-//     }
-//
-//     /**
-//      * Data validation before save
-//      * @param {Object} instance - Sequelize instance
-//      * @throws {Error} If validation fails
-//      */
-//     async dataControl(instance) {
-//         return await this.executeWithConnection(async () => {
-//             const { Op } = require("sequelize");
-//             const errors = [];
-//
-//             // Basic validations
-//             if (!instance.guid) errors.push('GUID is required');
-//             if (!instance.code?.trim()) errors.push('Code is required');
-//             if (!instance.company) errors.push('Company is required');
-//
-//             // Code format validation
-//             if (instance.code && instance.code.length > 128) {
-//                 errors.push('Code too long (max 128 characters)');
-//             }
-//
-//             // Check uniqueness
-//             if (instance.guid) {
-//                 const existingByGuid = await this.sequelizeModel.findOne({
-//                     where: {
-//                         guid: instance.guid,
-//                         id: { [Op.ne]: instance.id || 0 }
-//                     }
-//                 });
-//                 if (existingByGuid) errors.push('GUID already exists');
-//             }
-//
-//             if (instance.code) {
-//                 const existingByCode = await this.sequelizeModel.findOne({
-//                     where: {
-//                         code: instance.code,
-//                         id: { [Op.ne]: instance.id || 0 }
-//                     }
-//                 });
-//                 if (existingByCode) errors.push('Code already exists');
-//             }
-//
-//             if (errors.length > 0) {
-//                 throw new Error(errors.join('; '));
-//             }
-//         });
-//     }
-//
-//     /**
-//      * Get all accounts avec pagination et gestion de connexion
-//      * @param {Object} options - Query options
-//      * @returns {Promise<Object>}
-//      */
-//     async findAll(options = {}) {
-//         return await this.executeWithConnection(async () => {
-//             const {
-//                 page = 1,
-//                 limit = 10,
-//                 where = {},
-//                 order = [['id', 'ASC']],
-//                 include = []
-//             } = options;
-//
-//             const offset = (page - 1) * limit;
-//             const defaultWhere = { deleted: false, ...where };
-//
-//             const { count, rows } = await this.sequelizeModel.findAndCountAll({
-//                 where: defaultWhere,
-//                 order,
-//                 limit,
-//                 offset,
-//                 include,
-//                 distinct: true
-//             });
-//
-//             return {
-//                 data: rows.map(row => row.toJSON()),
-//                 pagination: {
-//                     page,
-//                     limit,
-//                     total: count,
-//                     pages: Math.ceil(count / limit)
-//                 }
-//             };
-//         });
-//     }
-//
-//     /**
-//      * Get active accounts only
-//      * @param {Object} options - Query options
-//      * @returns {Promise<Array>}
-//      */
-//     async findActiveAccounts(options = {}) {
-//         return await this.findAll({
-//             ...options,
-//             where: { active: true, ...options.where }
-//         });
-//     }
-//
-//     /**
-//      * Initialize the model
-//      * @returns {Promise<void>}
-//      */
-//     async initialize() {
-//         try {
-//             await this.testConnection();
-//             await this.sequelizeModel.sync({ alter: true, force: G.development });
-//             console.log('✅ AccountModel synchronized successfully');
-//         } catch (error) {
-//             console.error('❌ Unable to synchronize the AccountModel:', error);
-//             throw error;
-//         }
-//     }
-//
-//     /**
-//      * Health check pour ce modèle
-//      * @returns {Promise<Object>}
-//      */
-//     async modelHealthCheck() {
-//         try {
-//             const baseHealth = await this.healthCheck();
-//             const accountCount = await this.count(this.sequelizeModel);
-//
-//             return {
-//                 ...baseHealth,
-//                 model: 'AccountModel',
-//                 accountCount,
-//                 modelStatus: 'healthy'
-//             };
-//         } catch (error) {
-//             return {
-//                 model: 'AccountModel',
-//                 modelStatus: 'unhealthy',
-//                 error: error.message,
-//                 timestamp: new Date().toISOString()
-//             };
-//         }
-//     }
-// }
-//
-// module.exports = AccountModel;

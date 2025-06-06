@@ -5,6 +5,34 @@ const R = require("../src/tools/Reply");
 const router = express.Router();
 
 
+// router.post('/add', async (req, res) => {
+//     try {
+//         const { english, french, portable, guid } = req.body;
+//         if (!english || !french || typeof portable === 'undefined' || typeof portable !== 'boolean') {
+//             return R.handleError(res, "missing_required_fields", 400);
+//         }
+//
+//         const truncatedEnglish = english.length > 120 ? english.slice(0, 120) : english;
+//         const reference = Lexicon.toOpenCamelCase(truncatedEnglish);
+//
+//         const lexicon = new Lexicon(reference, truncatedEnglish, french, portable, null, guid);
+//         console.log(lexicon);
+//
+//         // let entry;
+//         // if (guid) {
+//         //     entry = await lexicon.save();
+//         // } else {
+//         //     entry = await lexicon.save();
+//         // }
+//         const entry = await lexicon.save();
+//
+//         return R.response(true, entry.toJson(), res, 200);
+//
+//     } catch (error) {
+//         return R.handleError(res, error.message, 500);
+//     }
+// });
+
 router.post('/add', async (req, res) => {
     try {
         const { english, french, portable, guid } = req.body;
@@ -16,7 +44,6 @@ router.post('/add', async (req, res) => {
         const reference = Lexicon.toOpenCamelCase(truncatedEnglish);
 
         const lexicon = new Lexicon(reference, truncatedEnglish, french, portable, null, guid);
-        console.log(lexicon);
 
         // let entry;
         // if (guid) {

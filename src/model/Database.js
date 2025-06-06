@@ -482,3 +482,10 @@ class Database {
 }
 
 module.exports = Database;
+
+class DB extends Database {
+    constructor() {
+        super();
+    }
+}
+module.exports = DB;

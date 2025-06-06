@@ -36,6 +36,31 @@ class Lexicon {
         await W.isOccur(existingEntry, G.duplicate);
     }
 
+    // /**
+    //  * Convert to OpenCamelCase
+    //  * @param str
+    //  * @returns {string}
+    //  */
+    // static toOpenCamelCase(str) {
+    //     if (!str) return '';
+    //
+    //     const cleanedStr = str
+    //         .replace(/[^a-zA-Z0-9']+/g, ' ')
+    //         .trim()
+    //         .replace(/'/g, '');
+    //
+    //     const words = cleanedStr
+    //         .toLowerCase()
+    //         .split(' ')
+    //     ;
+    //
+    //     return words
+    //         .map((word, index) => {
+    //             if (index === 0) return word;
+    //             return word.charAt(0).toUpperCase() + word.slice(1);
+    //         })
+    //         .join('');
+    // }
     /**
      * Convert to OpenCamelCase
      * @param str
@@ -61,17 +86,6 @@ class Lexicon {
             })
             .join('');
     }
-
-    // static toOpenCamelCase(str) {
-    //     if (!str) return '';
-    //     const cleanedStr = str.replace(/[^a-zA-Z0-9']+/g, ' ').trim().replace(/'/g, '');
-    //     return cleanedStr
-    //         .toLowerCase()
-    //         .split(' ')
-    //         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    //         .join('');
-    // }
-
 
     /**
      * Save Lexicon data in the database
@@ -141,9 +155,9 @@ class Lexicon {
      */
     static async list(portable = false) {
         try {
-            const entries = portable
-                ? await LexiconModel.findAll({ where: { portable: 1 } })
-                : await LexiconModel.findAll();
+            const entries = await LexiconModel.findAll({
+                where: { portable: portable }
+            });
 
             if (!entries.length) return [];
 

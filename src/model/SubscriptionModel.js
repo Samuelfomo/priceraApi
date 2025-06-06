@@ -53,7 +53,7 @@ const SubscriptionModel = sequelize.define('Subscription', {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
-            model: 'account',
+            model: `${G.tablePrefix}_account`,
             key: 'id',
         },
         comment: 'The Account of Subscription must be foreign key references of table account'

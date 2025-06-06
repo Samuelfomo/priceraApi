@@ -4,19 +4,24 @@ const G = require('../tools/Glossary');
 const CompanyModel = require('../model/CompanyModel');
 
 /**
- * Business Logic class - Inherits from Model
+ * Business Logic class - Composition pattern instead of inheritance
  * Contains getters, setters, and business operations
  * @class Account
- * @extends AccountModel
  */
-class Account extends AccountModel {
-
+class Account {
     constructor(data = {}) {
-        super(data);
-        // Initialize with provided data
-        if (data) {
-            Object.assign(this, data);
-        }
+        // Initialize properties
+        this.id = data.id || null;
+        this.guid = data.guid || null;
+        this.code = data.code || null;
+        this.company = data.company || null;
+        this.active = data.active || false;
+        this.blocked = data.blocked || false;
+        this.deleted = data.deleted || false;
+        this.deletedAt = data.deletedAt || null;
+        this.lastLogin = data.lastLogin || null;
+        this.created = data.created || null;
+        this.updated = data.updated || null;
     }
 
     // ===========================
@@ -24,19 +29,20 @@ class Account extends AccountModel {
     // ===========================
 
     get guidFormatted() {
-        return String(this.guid).padStart(8, '0');
+        return this.guid ? Number(this.guid) : null;
     }
 
     get codeFormatted() {
-        return this.code?.toUpperCase();
+        return this.code?.toUpperCase() || '';
     }
 
     get isActive() {
-        return Boolean(this.active && !this.deleted);
+        return Boolean(this.active && !this.deleted && !this.blocked);
     }
 
     get statusText() {
         if (this.deleted) return 'Deleted';
+        if (this.blocked) return 'Blocked';
         if (!this.active) return 'Inactive';
         return 'Active';
     }
@@ -46,7 +52,7 @@ class Account extends AccountModel {
     }
 
     // ===========================
-    // BUSINESS LOGIC METHODS
+    // STATIC FACTORY METHODS
     // ===========================
 
     /**
@@ -58,10 +64,10 @@ class Account extends AccountModel {
         try {
             if (!id) throw new Error(G.errorMissingFields);
 
-            const account = await AccountModel.find(id);
-            if (!account) throw new Error(G.errorId);
+            const accountData = await AccountModel.find(id);
+            if (!accountData) throw new Error(G.errorId);
 
-            return new Account(account.toJSON());
+            return new Account(accountData);
 
         } catch (error) {
             Logger.logError('Failed to load account:', error);
@@ -78,10 +84,10 @@ class Account extends AccountModel {
         try {
             if (!code) throw new Error('Code is required');
 
-            const account = await AccountModel.findByAttribute('code', code.toUpperCase());
-            if (!account) throw new Error('Account not found');
+            const accountData = await AccountModel.findByAttribute('code', code.toUpperCase());
+            if (!accountData) throw new Error('Account not found');
 
-            return new Account(account.toJSON());
+            return new Account(accountData);
 
         } catch (error) {
             Logger.logError('Failed to get account by code:', error);
@@ -98,10 +104,10 @@ class Account extends AccountModel {
         try {
             if (!guid) throw new Error('GUID is required');
 
-            const account = await AccountModel.findByAttribute('guid', guid);
-            if (!account) throw new Error('Account not found');
+            const accountData = await AccountModel.findByAttribute('guid', guid);
+            if (!accountData) throw new Error('Account not found');
 
-            return new Account(account.toJSON());
+            return new Account(accountData);
 
         } catch (error) {
             Logger.logError('Failed to get account by GUID:', error);
@@ -110,14 +116,14 @@ class Account extends AccountModel {
     }
 
     /**
-     * Search accounts by name pattern
+     * Search accounts by code pattern
      * @param {string} pattern - Search pattern
      * @returns {Promise<Account[]>}
      */
     static async searchByCode(pattern) {
         try {
-            const accounts = await AccountModel.findByString('code', pattern);
-            return accounts.map(account => new Account(account.toJSON()));
+            const accountsData = await AccountModel.findByString('code', pattern);
+            return accountsData.map(data => new Account(data));
 
         } catch (error) {
             Logger.logError('Failed to search accounts:', error);
@@ -132,14 +138,56 @@ class Account extends AccountModel {
      */
     static async getByCompany(companyId) {
         try {
-            const accounts = await AccountModel.findByInt('company', companyId);
-            return accounts.map(account => new Account(account.toJSON()));
+            const accountsData = await AccountModel.findByInt('company', companyId);
+            return accountsData.map(data => new Account(data));
 
         } catch (error) {
             Logger.logError('Failed to get accounts by company:', error);
             throw error;
         }
     }
+
+    /**
+     * Get paginated accounts
+     * @param {Object} queryOptions - Query options
+     * @returns {Promise<Object>}
+     */
+    static async getAll(queryOptions = {}) {
+        try {
+            const result = await AccountModel.findAll(queryOptions);
+            return {
+                data: result.data.map(data => new Account(data)),
+                pagination: result.pagination
+            };
+
+        } catch (error) {
+            Logger.logError('Failed to get all accounts:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Create new account
+     * @param {Object} data - Account data
+     * @returns {Promise<Account>}
+     */
+    static async create(data) {
+        try {
+            const account = new Account(data);
+            await account.businessValidation();
+
+            const savedData = await AccountModel.create(account.toModelData());
+            return new Account(savedData);
+
+        } catch (error) {
+            Logger.logError('Failed to create account:', error);
+            throw error;
+        }
+    }
+
+    // ===========================
+    // INSTANCE METHODS
+    // ===========================
 
     /**
      * Activate account
@@ -176,6 +224,41 @@ class Account extends AccountModel {
     }
 
     /**
+     * Block account
+     * @returns {Promise<Account>}
+     */
+    async block() {
+        try {
+            this.blocked = true;
+            this.active = false;
+            await this.save();
+            Logger.logInfo(`Account ${this.code} blocked`);
+            return this;
+
+        } catch (error) {
+            Logger.logError('Failed to block account:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Unblock account
+     * @returns {Promise<Account>}
+     */
+    async unblock() {
+        try {
+            this.blocked = false;
+            await this.save();
+            Logger.logInfo(`Account ${this.code} unblocked`);
+            return this;
+
+        } catch (error) {
+            Logger.logError('Failed to unblock account:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Business validation
      * @throws {Error} If validation fails
      */
@@ -183,21 +266,21 @@ class Account extends AccountModel {
         const errors = [];
 
         // Business rules
-        if (this.code && this.code.length < 3) {
+        if (!this.code || this.code.trim().length < 3) {
             errors.push('Code must be at least 3 characters');
-        }
-
-        if (this.guid && this.guid < 1000) {
-            errors.push('GUID must be at least 1000');
         }
 
         // Check if company exists and is active
         if (this.company) {
-            const company = await CompanyModel.find(this.company);
-            if (!company) {
-                errors.push('Company does not exist');
-            } else if (!company.active) {
-                errors.push('Company is not active');
+            try {
+                const companyData = await CompanyModel.find(this.company);
+                if (!companyData) {
+                    errors.push('Company does not exist');
+                } else if (!companyData.active) {
+                    errors.push('Company is not active');
+                }
+            } catch (error) {
+                errors.push('Error validating company');
             }
         }
 
@@ -207,7 +290,7 @@ class Account extends AccountModel {
     }
 
     /**
-     * Save with business logic
+     * Save account with business logic
      * @returns {Promise<Account>}
      */
     async save() {
@@ -217,16 +300,20 @@ class Account extends AccountModel {
             // Business validation
             await this.businessValidation();
 
-            // Data control is handled by the model hook
-            const result = await (this.id ?
-                    super.save() :
-                    AccountModel.create(this.toJSON())
-            );
+            let savedData;
+            if (this.id) {
+                // Update existing
+                savedData = await AccountModel.update(this.id, this.toModelData());
+                if (!savedData) {
+                    throw new Error('Failed to update account');
+                }
+            } else {
+                // Create new
+                savedData = await AccountModel.create(this.toModelData());
+            }
 
             // Update current instance with saved data
-            if (!this.id && result.id) {
-                Object.assign(this, result.toJSON());
-            }
+            Object.assign(this, savedData);
 
             Logger.logInfo('Account saved successfully');
             return this;
@@ -241,19 +328,29 @@ class Account extends AccountModel {
     }
 
     /**
-     * Delete with business logic
-     * @returns {Promise<Account>}
+     * Delete account with business logic
+     * @returns {Promise<boolean>}
      */
     async delete() {
         try {
+            if (!this.id) {
+                throw new Error('Cannot delete account without ID');
+            }
+
             // Business rules for deletion
             if (this.active) {
                 throw new Error('Cannot delete active account. Deactivate first.');
             }
 
-            await this.softDelete();
-            Logger.logInfo(`Account ${this.code} deleted`);
-            return this;
+            const result = await AccountModel.softDelete(this.id);
+            if (result) {
+                this.deleted = true;
+                this.active = false;
+                this.deletedAt = new Date();
+                Logger.logInfo(`Account ${this.code} deleted`);
+            }
+
+            return result;
 
         } catch (error) {
             Logger.logError('Failed to delete account:', error);
@@ -262,19 +359,73 @@ class Account extends AccountModel {
     }
 
     /**
+     * Update last login
+     * @returns {Promise<Account>}
+     */
+    async updateLastLogin() {
+        try {
+            if (!this.id) {
+                throw new Error('Cannot update login for account without ID');
+            }
+
+            this.lastLogin = new Date();
+            const savedData = await AccountModel.update(this.id, {
+                lastLogin: this.lastLogin
+            });
+
+            if (savedData) {
+                Object.assign(this, savedData);
+            }
+
+            return this;
+
+        } catch (error) {
+            Logger.logError('Failed to update last login:', error);
+            throw error;
+        }
+    }
+
+    // ===========================
+    // DATA CONVERSION METHODS
+    // ===========================
+
+    /**
+     * Convert to model data (for database operations)
+     * @returns {Object}
+     */
+    toModelData() {
+        return {
+            id: this.id,
+            guid: this.guid,
+            code: this.code,
+            company: this.company,
+            active: this.active,
+            blocked: this.blocked,
+            deleted: this.deleted,
+            deletedAt: this.deletedAt,
+            lastLogin: this.lastLogin
+        };
+    }
+
+    /**
      * Convert to JSON with business formatting
      * @returns {Object}
      */
     toJSON() {
         return {
+            id: this.id,
             guid: this.guid,
             guidFormatted: this.guidFormatted,
             code: this.code,
             codeFormatted: this.codeFormatted,
             company: this.company,
             active: this.active,
+            blocked: this.blocked,
             isActive: this.isActive,
             statusText: this.statusText,
+            deleted: this.deleted,
+            deletedAt: this.deletedAt,
+            lastLogin: this.lastLogin,
             created: this.created,
             updated: this.updated
         };
@@ -289,7 +440,8 @@ class Account extends AccountModel {
             guid: this.guidFormatted,
             code: this.codeFormatted,
             status: this.statusText,
-            company: this.company
+            company: this.company,
+            lastLogin: this.lastLogin
         };
     }
 

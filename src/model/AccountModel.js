@@ -3,6 +3,7 @@ const path = require('path');
 const paths = require('../../config/paths');
 const G = require(path.join(paths.TOOL_DIR, 'Glossary'));
 const Database = require("./Database");
+const CountryModel = require("./CountryModel");
 
 /**
  * Model class - Pure data structure and basic CRUD operations
@@ -14,7 +15,7 @@ const Database = require("./Database");
  * @property {string} code
  * @property {number} company
  * @property {boolean} active
- * @property {boolean} blocked
+ // * @property {boolean} blocked
  * @property {boolean} deleted
  * @property {Date|null} deletedAt
  * @property {Date|null} lastLogin
@@ -25,7 +26,17 @@ class AccountModel extends Database {
         super();
         this.model = null;
         this._initModel();
+        this._initAssociations();
     }
+    _initAssociations(){
+        const CompanyModel = require("./CompanyModel");
+        this.model.belongsTo(CompanyModel.getModel(), {
+            foreignKey: "company",
+            as: "companyData",
+            targetKey: "id"
+        });
+    }
+
 
     /**
      * Initialise le modèle Sequelize
@@ -60,6 +71,10 @@ class AccountModel extends Database {
             company: {
                 type: DataTypes.INTEGER,
                 allowNull: false,
+                unique: {
+                    name: 'UNIQUE-ACCOUNT-COMPANY',
+                    msg: 'The COMPANY ID must be unique'
+                },
                 references: {
                     model: `${G.tablePrefix}_company`,
                     key: 'id'
@@ -68,16 +83,16 @@ class AccountModel extends Database {
             },
             active: {
                 type: DataTypes.BOOLEAN,
-                defaultValue: false,
+                defaultValue: true,
                 allowNull: false,
                 comment: 'Active Account'
             },
-            blocked: {
-                type: DataTypes.BOOLEAN,
-                defaultValue: false,
-                allowNull: false,
-                comment: 'Blocked Account'
-            },
+            // blocked: {
+            //     type: DataTypes.BOOLEAN,
+            //     defaultValue: false,
+            //     allowNull: false,
+            //     comment: 'Blocked Account'
+            // },
             deleted: {
                 type: DataTypes.BOOLEAN,
                 defaultValue: false,
@@ -160,11 +175,11 @@ class AccountModel extends Database {
             console.error('Erreur lors de la recherche par attribut:', error);
             throw error;
         }
-        finally {
-            if (!options.isTransaction && !this._isTransactionActive) {
-                await this.closePool();
-            }
-        }
+        // finally {
+        //     if (!options.isTransaction && !this._isTransactionActive) {
+        //         await this.closePool();
+        //     }
+        // }
     }
 
     /**
@@ -287,6 +302,9 @@ class AccountModel extends Database {
             if (!data.guid) {
                 data.guid = await this.generateGuid(this.model, 6, null, options);
             }
+            if (!data.code){
+                data.code = await this.generateUniqueCode(this.model, 6, options);
+            }
 
             return await this.createRecord(this.model, data, options);
         } catch (error) {
@@ -401,10 +419,43 @@ class AccountModel extends Database {
             console.error('Erreur lors de la recherche paginée:', error);
             throw error;
         }
-        finally {
-            if (!options.isTransaction && !this._isTransactionActive) {
-                await this.closePool();
+        // finally {
+        //     if (!options.isTransaction && !this._isTransactionActive) {
+        //         await this.closePool();
+        //     }
+        // }
+    }
+    async findAllWithCompany(queryOptions = {}, options = {}) {
+        try {
+            const { connection } = await this.getConnection(options);
+            const CompanyModel = require('./CompanyModel');
+
+            const {page = 1, limit = 10, where = {}, order = [['id', 'ASC']]} = queryOptions;
+            const offset = (page - 1) * limit;
+
+            const findOptions = {where, order, limit, offset,
+                include: [{
+                    model: CompanyModel.getModel(),
+                    as: 'companyData',
+                    required: true
+                }],
+                distinct: true
+            };
+
+            if (options.isTransaction || this._isTransactionActive) {
+                findOptions.transaction = connection;
             }
+
+            const { count, rows } = await this.model.findAndCountAll(findOptions);
+
+            return {
+                data: rows.map(row => row.toJSON()),
+                pagination: {page, limit, total: count, pages: Math.ceil(count / limit)
+                }
+            };
+        } catch (error) {
+            console.error('Erreur lors de la recherche paginée avec company:', error);
+            throw error;
         }
     }
 

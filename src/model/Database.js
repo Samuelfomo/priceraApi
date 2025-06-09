@@ -284,6 +284,49 @@ class Database {
     }
 
     /**
+     * Génère un code alphanumérique unique
+     * @param {Object} table - Modèle Sequelize
+     * @param {number} length - Longueur du code
+     * @param {Object} options - Options de connexion
+     * @returns {Promise<string>}
+     */
+    async generateUniqueCode(table, length = 6, options = {}) {
+        const charset = `ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789`;
+
+        function generateCode(length) {
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                const randIndex = Math.floor(Math.random() * charset.length);
+                result += charset[randIndex];
+            }
+            return result;
+        }
+
+        try {
+            const { connection } = await this.getConnection(options);
+            let code;
+            let exists = true;
+
+            while (exists) {
+                code = generateCode(length);
+                const queryOptions = { where: { code: code } };
+                if (options.isTransaction || this._isTransactionActive) {
+                    queryOptions.transaction = connection;
+                }
+
+                const existing = await table.findOne(queryOptions);
+                exists = existing !== null;
+            }
+
+            return code;
+        } catch (error) {
+            console.error('Erreur lors de la génération du code unique:', error);
+            throw error;
+        }
+    }
+
+
+    /**
      * Crée un enregistrement
      * @param {Object} table - Modèle Sequelize
      * @param {Object} data - Données à insérer

@@ -25,6 +25,22 @@ class CompanyModel extends Database {
         super();
         this.model = null;
         this._initModel();
+        this._initAssociations();
+    }
+
+    /**
+     *
+     * @private
+     */
+    _initAssociations() {
+        // Définir les associations Sequelize
+        const CountryModel = require('./CountryModel');
+
+        this.model.belongsTo(CountryModel.getModel(), {
+            foreignKey: 'country',
+            as: 'countryData',
+            targetKey: 'id'
+        });
     }
 
     /**
@@ -162,6 +178,78 @@ class CompanyModel extends Database {
     }
 
     /**
+     * Méthode pour récupérer avec les relations
+     * @param id
+     * @param options
+     * @returns {Promise<*|null>}
+     */
+    async findWithCountry(id, options = {}) {
+        try {
+            const { connection } = await this.getConnection(options);
+            const CountryModel = require('./CountryModel');
+
+            const queryOptions = {
+                where: { id },
+                include: [{
+                    model: CountryModel.getModel(),
+                    as: 'countryData',
+                    required: true
+                }]
+            };
+
+            if (options.isTransaction || this._isTransactionActive) {
+                queryOptions.transaction = connection;
+            }
+
+            const result = await this.model.findOne(queryOptions);
+            return result ? result.toJSON() : null;
+        } catch (error) {
+            console.error('Erreur lors de la recherche avec pays:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Méthode pour récupérer tous avec relations
+     * @param queryOptions
+     * @param options
+     * @returns {Promise<{data: *, pagination: {page: number, limit: number, total: *, pages: number}}>}
+     */
+    async findAllWithCountry(queryOptions = {}, options = {}) {
+        try {
+            const { connection } = await this.getConnection(options);
+            const CountryModel = require('./CountryModel');
+
+            const {page = 1, limit = 10, where = {}, order = [['id', 'ASC']]} = queryOptions;
+            const offset = (page - 1) * limit;
+
+            const findOptions = {where, order, limit, offset,
+                include: [{
+                    model: CountryModel.getModel(),
+                    as: 'countryData',
+                    required: true
+                }],
+                distinct: true
+            };
+
+            if (options.isTransaction || this._isTransactionActive) {
+                findOptions.transaction = connection;
+            }
+
+            const { count, rows } = await this.model.findAndCountAll(findOptions);
+
+            return {
+                data: rows.map(row => row.toJSON()),
+                pagination: {page, limit, total: count, pages: Math.ceil(count / limit)
+                }
+            };
+        } catch (error) {
+            console.error('Erreur lors de la recherche paginée avec pays:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Find by ID
      * @param {number} id - Company ID
      * @param {Object} options - Options de connexion
@@ -176,6 +264,7 @@ class CompanyModel extends Database {
             throw error;
         }
     }
+
 
     /**
      * Find by single attribute

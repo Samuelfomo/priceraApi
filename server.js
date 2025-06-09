@@ -129,9 +129,15 @@ async function initializeRoutes() {
         const lexiconRoute = require(path.join(paths.ROUTER, 'lexicon'));
         const countryRoute = require(path.join(paths.ROUTER, 'country'));
         const companyRoute = require(path.join(paths.ROUTER, 'company'));
+        const accountRoute = require(path.join(paths.ROUTER, 'account'));
+        const userRoute = require(path.join(paths.ROUTER, 'user'));
+        const profilRoute = require(path.join(paths.ROUTER, 'profil'));
         app.use("/lexicon", lexiconRoute);
         app.use("/country", countryRoute);
         app.use("/company", companyRoute);
+        app.use("/account", accountRoute);
+        app.use("/user", userRoute);
+        app.use("/profil", profilRoute);
 
         // Ajouter d'autres routes ici...
         // const accountRoute = require(path.join(paths.ROUTER, 'account'));

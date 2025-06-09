@@ -43,24 +43,37 @@ router.post("/add", async (req, res) => {
         if (!countryFind) {
             return R.response(false, G.errorGuid, res, 404);
         }
-        console.log('countryFind.id', countryFind.id);
 
         // Validation du champ 'point' (doit être une chaîne au format WKT "POINT(lon lat)")
-        // if (!point) {
-        //     return R.handleError(res, `${G.errorMissingFields}: point (géolocalisation)`, 400);
-        // }
-        // console.log(point);
+        if (!point) {
+            return R.handleError(res, `${G.errorMissingFields}: point (géolocalisation)`, 400);
+        }
+        console.log(point);
+        if ( typeof point !== 'object' || typeof point.lat !== 'number' || typeof point.long !== 'number') {
+            return R.handleError(res, 'Le champ point doit être un objet contenant des valeurs numériques lat et long', 400);
+        }
+
+        const lat = point.lat;
+        const long = point.long;
+
+        if (long < -180 || long > 180) {
+            return R.handleError(res, 'Longitude doit être entre -180 et 180', 400);
+        }
+        if (lat < -90 || lat > 90) {
+            return R.handleError(res, 'Latitude doit être entre -90 et 90', 400);
+        }
+
         // const pointRegex = /^POINT\((-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\)$/i;
         // const match = point.toString().match(pointRegex);
         // if (!match) {
         //     return R.handleError(res, 'Le champ point doit être au format WKT: POINT(longitude latitude)', 400);
         // }
-        // const longitude = parseFloat(match[1]);
-        // const latitude = parseFloat(match[3]);
-        // if (longitude < -180 || longitude > 180) {
+        // const long = parseFloat(match[1]);
+        // const lat = parseFloat(match[3]);
+        // if (long < -180 || long > 180) {
         //     return R.handleError(res, 'Longitude doit être entre -180 et 180', 400);
         // }
-        // if (latitude < -90 || latitude > 90) {
+        // if (lat < -90 || lat > 90) {
         //     return R.handleError(res, 'Latitude doit être entre -90 et 90', 400);
         // }
 
@@ -98,7 +111,10 @@ router.post("/add", async (req, res) => {
         const companyData = {
             name: name.trim(),
             guid: Number(guid),
-            point: point,
+            point: {
+                latitude: Number(lat),
+                longitude: Number(long),
+            },
             country: countryFind.id,
             address: {
                 city: address.city.trim(),
@@ -120,12 +136,21 @@ router.post("/add", async (req, res) => {
             return R.response(false, G.errorSaved, res, 500);
         }
         await result.loadCountry();
-
         return R.response(true, result.toDisplay(), res, 200);
     } catch (error) {
         return R.handleError(res, error.message, 500);
     }
 });
-
+router.get("/all", async (req, res) => {
+    try {
+        const result = await Company.getAllWithCountry();
+        if (!result) {
+            return R.response(false, G.errorId, res, 500);
+        }
+        return R.response(true, result, res, 200);
+    } catch (error){
+        return R.handleError(res, error.message, 500);
+    }
+})
 
 module.exports = router;

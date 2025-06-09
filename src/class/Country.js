@@ -230,8 +230,23 @@ class Country {
         }
     }
 
-
-
+    toJSON(){
+        return {
+            id: this.id,
+            guid: this.guid,
+            guidFormatted: this.guidFormatted,
+            alpha2: this.alpha2,
+            alpha2Formatted: this.alpha2Formatted,
+            alpha3: this.alpha3,
+            alpha3Formatted: this.alpha3Formatted,
+            dialcode: this.dialcode,
+            dialcodeFormatted: this.dialcodeFormatted,
+            fr: this.fr,
+            frFormatted: this.frFormatted,
+            en: this.en,
+            enFormatted: this.enFormatted
+}
+}
 
     /**
      * Convert to model data (for database operations)
@@ -268,5 +283,4 @@ class Country {
 
 
 }
-
 module.exports = Country;

@@ -5,23 +5,23 @@ const CompanyModel = require('../model/CompanyModel');
 
 /**
  * Business Logic class - Composition pattern instead of inheritance
- * Contains getters, setters, and business operations
+ * Contains getters, setters, and business Accountoperations
  * @class Account
  */
 class Account {
     constructor(data = {}) {
-        // Initialize properties
         this.id = data.id || null;
         this.guid = data.guid || null;
         this.code = data.code || null;
         this.company = data.company || null;
-        this.active = data.active || false;
-        this.blocked = data.blocked || false;
+        this.active = data.active || true;
+        // this.blocked = data.blocked || false;
         this.deleted = data.deleted || false;
         this.deletedAt = data.deletedAt || null;
         this.lastLogin = data.lastLogin || null;
         this.created = data.created || null;
         this.updated = data.updated || null;
+        this.companyObject = data.companyObject || null;
     }
 
     // ===========================
@@ -42,7 +42,7 @@ class Account {
 
     get statusText() {
         if (this.deleted) return 'Deleted';
-        if (this.blocked) return 'Blocked';
+        // if (this.blocked) return 'Blocked';
         if (!this.active) return 'Inactive';
         return 'Active';
     }
@@ -54,6 +54,80 @@ class Account {
     // ===========================
     // STATIC FACTORY METHODS
     // ===========================
+
+    /**
+     * Méthode statique pour charger un account avec sa company
+     * @param id
+     * @returns {Promise<Account>}
+     */
+    static async loadWithCompany(id) {
+        const Company = require('../class/Company');
+        try {
+            // const account = await Account.load(id);
+            // await account.loadCompany();
+            // return account;
+            const accountData = await AccountModel.find(id);
+            if (!accountData) throw new Error('Account not found');
+
+            const account = new Account(accountData);
+                account.company = await Company.loadWithCountry(account.id);
+
+            return account;
+        } catch (error) {
+            Logger.logError('Failed to load account with company:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Méthode statique pour obtenir toutes les accounts avec leurs companies
+     * @param queryOptions
+     * @returns {Promise<{data: Awaited<unknown>[], pagination: {page: number, limit: number, total: *, pages: number}}>}
+     */
+    static async getAllWithCompany(queryOptions = {}) {
+        try {
+            const result = await AccountModel.findAllWithCompany(queryOptions);
+
+            // Charger les Company pour chaque Account
+            const accountWithCompany = await Promise.all(
+                result.data.map(async (accountData) => {
+                    const account = new Account(accountData);
+                    await account.loadCompany();
+                    return account.toDisplay();
+                })
+            );
+
+            return {
+                data: accountWithCompany,
+                pagination: result.pagination
+            };
+        } catch (error) {
+            Logger.logError('Failed to get all companies with country:', error);
+            throw error;
+        }
+    }
+    // static async getAllWithCountry(queryOptions = {}) {
+    //     try {
+    //         const result = await CompanyModel.findAllWithCountry(queryOptions);
+    //
+    //         // Charger les countries pour chaque company
+    //         const companiesWithCountry = await Promise.all(
+    //             result.data.map(async (companyData) => {
+    //                 const company = new Company(companyData);
+    //                 await company.loadCountry();
+    //                 return company.toDisplay();
+    //             })
+    //         );
+    //
+    //         return {
+    //             data: companiesWithCountry,
+    //             pagination: result.pagination
+    //         };
+    //     } catch (error) {
+    //         Logger.logError('Failed to get all companies with country:', error);
+    //         throw error;
+    //     }
+    // }
 
     /**
      * Load account with business validation
@@ -190,6 +264,30 @@ class Account {
     // ===========================
 
     /**
+     * Charger les données du company associé
+     * @returns {Promise<Company|null>}
+     */
+    async loadCompany() {
+        try {
+            if (!this.company) return null;
+
+            const CompanyModel = require('../model/CompanyModel');
+            const companyData = await CompanyModel.findWithCountry(this.company);
+
+            if (companyData) {
+                const Company = require('./Company');
+                this.companyObject = new Company(companyData);
+                return this.companyObject;
+            }
+
+            return null;
+        } catch (error) {
+            Logger.logError('Failed to load company:', error);
+            return null;
+        }
+    }
+
+    /**
      * Activate account
      * @returns {Promise<Account>}
      */
@@ -223,40 +321,40 @@ class Account {
         }
     }
 
-    /**
-     * Block account
-     * @returns {Promise<Account>}
-     */
-    async block() {
-        try {
-            this.blocked = true;
-            this.active = false;
-            await this.save();
-            Logger.logInfo(`Account ${this.code} blocked`);
-            return this;
+    // /**
+    //  * Block account
+    //  * @returns {Promise<Account>}
+    //  */
+    // async block() {
+    //     try {
+    //         this.blocked = true;
+    //         this.active = false;
+    //         await this.save();
+    //         Logger.logInfo(`Account ${this.code} blocked`);
+    //         return this;
+    //
+    //     } catch (error) {
+    //         Logger.logError('Failed to block account:', error);
+    //         throw error;
+    //     }
+    // }
 
-        } catch (error) {
-            Logger.logError('Failed to block account:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Unblock account
-     * @returns {Promise<Account>}
-     */
-    async unblock() {
-        try {
-            this.blocked = false;
-            await this.save();
-            Logger.logInfo(`Account ${this.code} unblocked`);
-            return this;
-
-        } catch (error) {
-            Logger.logError('Failed to unblock account:', error);
-            throw error;
-        }
-    }
+    // /**
+    //  * Unblock account
+    //  * @returns {Promise<Account>}
+    //  */
+    // async unblock() {
+    //     try {
+    //         this.blocked = false;
+    //         await this.save();
+    //         Logger.logInfo(`Account ${this.code} unblocked`);
+    //         return this;
+    //
+    //     } catch (error) {
+    //         Logger.logError('Failed to unblock account:', error);
+    //         throw error;
+    //     }
+    // }
 
     /**
      * Business validation
@@ -266,18 +364,17 @@ class Account {
         const errors = [];
 
         // Business rules
-        if (!this.code || this.code.trim().length < 3) {
-            errors.push('Code must be at least 3 characters');
+        if (this.code) {
+            if (this.code.trim().length < 3) {
+                errors.push('Code must be at least 3 characters');
+            }
         }
 
-        // Check if company exists and is active
         if (this.company) {
             try {
                 const companyData = await CompanyModel.find(this.company);
                 if (!companyData) {
                     errors.push('Company does not exist');
-                } else if (!companyData.active) {
-                    errors.push('Company is not active');
                 }
             } catch (error) {
                 errors.push('Error validating company');
@@ -400,7 +497,7 @@ class Account {
             code: this.code,
             company: this.company,
             active: this.active,
-            blocked: this.blocked,
+            // blocked: this.blocked,
             deleted: this.deleted,
             deletedAt: this.deletedAt,
             lastLogin: this.lastLogin
@@ -418,9 +515,10 @@ class Account {
             guidFormatted: this.guidFormatted,
             code: this.code,
             codeFormatted: this.codeFormatted,
-            company: this.company,
+            // company: this.company,
+            company: this.companyObject ? this.companyObject.toJSON() : { id: this.company },
             active: this.active,
-            blocked: this.blocked,
+            // blocked: this.blocked,
             isActive: this.isActive,
             statusText: this.statusText,
             deleted: this.deleted,
@@ -440,7 +538,8 @@ class Account {
             guid: this.guidFormatted,
             code: this.codeFormatted,
             status: this.statusText,
-            company: this.company,
+            company: this.companyObject ? this.companyObject.toDisplay() : { id: this.company },
+            // company: this.company,
             lastLogin: this.lastLogin
         };
     }

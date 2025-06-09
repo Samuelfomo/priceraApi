@@ -140,11 +140,11 @@ class CountryModel extends Database{
             console.error('Erreur lors de la recherche paginée:', error);
             throw error;
         }
-        finally {
-            if (!options.isTransaction && !this._isTransactionActive) {
-                await this.closePool();
-            }
-        }
+        // finally {
+        //     if (!options.isTransaction && !this._isTransactionActive) {
+        //         await this.closePool();
+        //     }
+        // }
     }
 
     /**

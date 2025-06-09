@@ -10,11 +10,10 @@ const CountryModel = require('../model/CountryModel');
  */
 class Company {
     constructor(data = {}) {
-        // Initialize properties
         this.id = data.id || null;
         this.guid = data.guid || null;
         this.name = data.name || '';
-        this.point = data.point || [];
+        this.pointValue = data.point || {};
         this.code = data.code || '';
         this.country = data.country || null;
         this.address = data.address || {};
@@ -22,6 +21,14 @@ class Company {
         this.created = data.created || null;
         this.updated = data.updated || null;
         this.countryObject = data.countryObject || null;
+        const Country = require('./Country'); // Chemin vers ta classe métier Country
+        if (data.countryData) {
+            this.countryObject = new Country(data.countryData);
+        } else if (data.countryObject) {
+            this.countryObject = new Country(data.countryObject);
+        } else {
+            this.countryObject = null;
+        }
     }
 
     // ===========================
@@ -113,6 +120,17 @@ class Company {
         return parts.join(', ');
     }
 
+    get hasCountryLoaded() {
+        return this.countryObject !== null;
+    }
+
+    getCountryInfo() {
+        if (this.countryObject) {
+            return this.countryObject.toDisplay();
+        }
+        return { id: this.country, name: 'Not loaded' };
+    }
+
     set codeValue(value) {
         this.code = value?.toString().trim().toUpperCase();
     }
@@ -120,21 +138,26 @@ class Company {
     set nameValue(value) {
         this.name = value?.toString().trim();
     }
-    set pointValue(coords) {
-        if (coords && coords.latitude != null && coords.longitude != null) {
-            this.point = [Number(coords.latitude), Number(coords.longitude)];
-        } else {
-            this.point = [];
-        }
-    }
-
-    // set pointValue({latitude, longitude}) {
-    //     if (latitude != null && longitude != null) {
-    //         this.point = [Number(latitude), Number(longitude)];
+    // set pointValue(coords) {
+    //     if (coords && coords.latitude != null && coords.longitude != null) {
+    //         this.point = [Number(coords.latitude), Number(coords.longitude)];
     //     } else {
     //         this.point = [];
     //     }
     // }
+    set pointValue(coords) {
+        if (coords && typeof coords === 'object') {
+            const lat = Number(coords.lat ?? coords.latitude);
+            const lng = Number(coords.long ?? coords.longitude);
+
+            if (!isNaN(lat) && !isNaN(lng)) {
+                this.point = `POINT(${lng} ${lat})`;
+                return;
+            }
+        }
+
+        this.point = [];
+    }
 
     // ===========================
     // STATIC FACTORY METHODS
@@ -145,6 +168,10 @@ class Company {
      * @returns {Promise<Country|null>}
      */
     async loadCountry() {
+        if (this.countryObject) {
+            return this.countryObject;
+        }
+
         try {
             if (!this.country) return null;
 
@@ -171,14 +198,25 @@ class Company {
      */
     static async loadWithCountry(id) {
         try {
-            const company = await Company.load(id);
-            await company.loadCountry();
-            return company;
+            const companyData = await CompanyModel.findWithCountry(id);
+            if (!companyData) throw new Error(G.errorId);
+
+            return new Company(companyData);
         } catch (error) {
             Logger.logError('Failed to load company with country:', error);
             throw error;
         }
     }
+    // static async loadWithCountry(id) {
+    //     try {
+    //         const company = await Company.load(id);
+    //         await company.loadCountry();
+    //         return company;
+    //     } catch (error) {
+    //         Logger.logError('Failed to load company with country:', error);
+    //         throw error;
+    //     }
+    // }
 
     /**
      * Méthode statique pour obtenir toutes les companies avec leurs countries
@@ -187,14 +225,14 @@ class Company {
      */
     static async getAllWithCountry(queryOptions = {}) {
         try {
-            const result = await CompanyModel.findAll(queryOptions);
+            const result = await CompanyModel.findAllWithCountry(queryOptions);
 
             // Charger les countries pour chaque company
             const companiesWithCountry = await Promise.all(
                 result.data.map(async (companyData) => {
                     const company = new Company(companyData);
                     await company.loadCountry();
-                    return company;
+                    return company.toDisplay();
                 })
             );
 
@@ -353,6 +391,15 @@ class Company {
             throw error;
         }
     }
+
+    // static async active(data) {
+    //     try {
+    //         const activeCompany = await CompanyModel.
+    //     } catch (error) {
+    //         Logger.logError('Failed to activate company:', error);
+    //         throw error;
+    //     }
+    // }
 
     // ===========================
     // INSTANCE METHODS
@@ -619,7 +666,8 @@ class Company {
             addressFormatted: this.addressFormatted,
             metadata: this.metadataFormatted,
             created: this.created,
-            updated: this.updated
+            updated: this.updated,
+            hasCountryLoaded: this.hasCountryLoaded
         };
     }
 

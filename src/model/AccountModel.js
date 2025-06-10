@@ -3,7 +3,7 @@ const path = require('path');
 const paths = require('../../config/paths');
 const G = require(path.join(paths.TOOL_DIR, 'Glossary'));
 const Database = require("./Database");
-const CountryModel = require("./CountryModel");
+const CompanyModel = require("./CompanyModel");
 
 /**
  * Model class - Pure data structure and basic CRUD operations
@@ -146,6 +146,53 @@ class AccountModel extends Database {
             throw error;
         }
     }
+    async findWithCompany(id, options = {}) {
+        try {
+            const connection = await this.getConnection(options);
+            const CompanyModel = require("./CompanyModel");
+            const queryOptions = {
+                where: {id},
+                include: [{
+                    model: CompanyModel.getModel(),
+                    as: "companyData",
+                    required: true
+                }]
+            };
+            if (options.isTransaction || options._isTransactionActive) {
+                queryOptions.transaction = connection;
+            }
+            const result = await this.model.findOne(queryOptions);
+            return result ? result.toJSON() : null;
+        } catch (error){
+            throw error;
+        }
+    }
+
+    /*
+    async findWithCountry(id, options = {}) {
+        try {
+            const { connection } = await this.getConnection(options);
+            const CountryModel = require('./CountryModel');
+
+            const queryOptions = {
+                where: { id },
+                include: [{
+                    model: CountryModel.getModel(),
+                    as: 'countryData',
+                    required: true
+                }]
+            };
+            if (options.isTransaction || this._isTransactionActive) {
+                queryOptions.transaction = connection;
+            }
+            const result = await this.model.findOne(queryOptions);
+            return result ? result.toJSON() : null;
+        } catch (error) {
+            console.error('Erreur lors de la recherche avec pays:', error);
+            throw error;
+        }
+    }
+     */
 
     /**
      * Find by single attribute
@@ -212,11 +259,11 @@ class AccountModel extends Database {
             console.error('Erreur lors de la recherche multiple:', error);
             throw error;
         }
-        finally {
-            if (!options.isTransaction && !this._isTransactionActive) {
-                await this.closePool();
-            }
-        }
+        // finally {
+        //     if (!options.isTransaction && !this._isTransactionActive) {
+        //         await this.closePool();
+        //     }
+        // }
     }
 
     /**
@@ -248,11 +295,11 @@ class AccountModel extends Database {
             console.error('Erreur lors de la recherche par chaîne:', error);
             throw error;
         }
-        finally {
-            if (!options.isTransaction && !this._isTransactionActive) {
-                await this.closePool();
-            }
-        }
+        // finally {
+        //     if (!options.isTransaction && !this._isTransactionActive) {
+        //         await this.closePool();
+        //     }
+        // }
     }
 
     /**
@@ -265,29 +312,26 @@ class AccountModel extends Database {
     async findByInt(attribute, value, options = {}) {
         try {
             const { connection } = await this.getConnection(options);
-
             const queryOptions = {
                 where: {
                     [attribute]: value,
                     deleted: false
                 }
             };
-
             if (options.isTransaction || this._isTransactionActive) {
                 queryOptions.transaction = connection;
             }
-
             const results = await this.model.findAll(queryOptions);
             return results.map(result => result.toJSON());
         } catch (error) {
             console.error('Erreur lors de la recherche par entier:', error);
             throw error;
         }
-        finally {
-            if (!options.isTransaction && !this._isTransactionActive) {
-                await this.closePool();
-            }
-        }
+        // finally {
+        //     if (!options.isTransaction && !this._isTransactionActive) {
+        //         await this.closePool();
+        //     }
+        // }
     }
 
     /**
@@ -305,7 +349,6 @@ class AccountModel extends Database {
             if (!data.code){
                 data.code = await this.generateUniqueCode(this.model, 6, options);
             }
-
             return await this.createRecord(this.model, data, options);
         } catch (error) {
             console.error('Erreur lors de la création:', error);
@@ -323,31 +366,26 @@ class AccountModel extends Database {
     async update(id, data, options = {}) {
         try {
             const { connection } = await this.getConnection(options);
-
             const updateOptions = {
                 where: { id: id, deleted: false }
             };
-
             if (options.isTransaction || this._isTransactionActive) {
                 updateOptions.transaction = connection;
             }
-
             const [updatedRowsCount] = await this.model.update(data, updateOptions);
-
             if (updatedRowsCount > 0) {
                 return await this.find(id, options);
             }
-
             return null;
         } catch (error) {
             console.error('Erreur lors de la mise à jour:', error);
             throw error;
         }
-        finally {
-            if (!options.isTransaction && !this._isTransactionActive) {
-                await this.closePool();
-            }
-        }
+        // finally {
+        //     if (!options.isTransaction && !this._isTransactionActive) {
+        //         await this.closePool();
+        //     }
+        // }
     }
 
     /**
@@ -380,25 +418,11 @@ class AccountModel extends Database {
     async findAll(queryOptions = {}, options = {}) {
         try {
             const { connection } = await this.getConnection(options);
-            const {
-                page = 1,
-                limit = 10,
-                where = {},
-                order = [['id', 'ASC']],
-                include = []
-            } = queryOptions;
-
+            const { page = 1, limit = 10, where = {}, order = [['id', 'ASC']], include = [] } = queryOptions;
             const offset = (page - 1) * limit;
             const defaultWhere = { deleted: false, ...where };
 
-            const findOptions = {
-                where: defaultWhere,
-                order,
-                limit,
-                offset,
-                include,
-                distinct: true
-            };
+            const findOptions = { where: defaultWhere, order, limit, offset, include, distinct: true };
 
             if (options.isTransaction || this._isTransactionActive) {
                 findOptions.transaction = connection;
@@ -408,12 +432,7 @@ class AccountModel extends Database {
 
             return {
                 data: rows.map(row => row.toJSON()),
-                pagination: {
-                    page,
-                    limit,
-                    total: count,
-                    pages: Math.ceil(count / limit)
-                }
+                pagination: { page, limit, total: count, pages: Math.ceil(count / limit) }
             };
         } catch (error) {
             console.error('Erreur lors de la recherche paginée:', error);
@@ -441,13 +460,10 @@ class AccountModel extends Database {
                 }],
                 distinct: true
             };
-
             if (options.isTransaction || this._isTransactionActive) {
                 findOptions.transaction = connection;
             }
-
             const { count, rows } = await this.model.findAndCountAll(findOptions);
-
             return {
                 data: rows.map(row => row.toJSON()),
                 pagination: {page, limit, total: count, pages: Math.ceil(count / limit)

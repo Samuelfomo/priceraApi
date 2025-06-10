@@ -3,6 +3,8 @@ const Logger = require('../tools/logger');
 const G = require('../tools/Glossary');
 const CountryModel = require('../model/CountryModel');
 
+const Country = require('./Country');
+
 /**
  * Business Logic class - Composition pattern instead of inheritance
  * Contains getters, setters, and business operations
@@ -21,7 +23,6 @@ class Company {
         this.created = data.created || null;
         this.updated = data.updated || null;
         this.countryObject = data.countryObject || null;
-        const Country = require('./Country'); // Chemin vers ta classe métier Country
         if (data.countryData) {
             this.countryObject = new Country(data.countryData);
         } else if (data.countryObject) {
@@ -223,7 +224,7 @@ class Company {
      * @param {Object} queryOptions - Query options
      * @returns {Promise<Object>}
      */
-    static async getAllWithCountry(queryOptions = {}) {
+    static async getAllCompany(queryOptions = {}) {
         try {
             const result = await CompanyModel.findAllWithCountry(queryOptions);
 
@@ -231,7 +232,6 @@ class Company {
             const companiesWithCountry = await Promise.all(
                 result.data.map(async (companyData) => {
                     const company = new Company(companyData);
-                    await company.loadCountry();
                     return company.toDisplay();
                 })
             );
@@ -603,7 +603,6 @@ class Company {
                 }
             } else {
                 // Create new
-                console.log(this.toModelData());
                 savedData = await CompanyModel.create(this.toModelData());
             }
 

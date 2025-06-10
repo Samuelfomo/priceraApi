@@ -322,39 +322,16 @@ class ProfilModel extends Database {
     async findAll(queryOptions = {}, options = {}) {
         try {
             const { connection } = await this.getConnection(options);
-            const {
-                page = 1,
-                limit = 10,
-                where = {},
-                order = [['name', 'ASC']],
-                include = []
-            } = queryOptions;
-
+            const { page = 1, limit = 10, where = {}, order = [['name', 'ASC']], include = [] } = queryOptions;
             const offset = (page - 1) * limit;
-
-            const findOptions = {
-                where,
-                order,
-                limit,
-                offset,
-                include,
-                distinct: true
-            };
-
+            const findOptions = { where, order, limit, offset, include, distinct: true };
             if (options.isTransaction || this._isTransactionActive) {
                 findOptions.transaction = connection;
             }
-
             const { count, rows } = await this.model.findAndCountAll(findOptions);
-
             return {
                 data: rows.map(row => row.toJSON()),
-                pagination: {
-                    page,
-                    limit,
-                    total: count,
-                    pages: Math.ceil(count / limit)
-                }
+                pagination: { page, limit, total: count, pages: Math.ceil(count / limit) }
             };
         } catch (error) {
             console.error('Erreur lors de la recherche paginée:', error);

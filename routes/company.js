@@ -136,6 +136,7 @@ router.post("/add", async (req, res) => {
             return R.response(false, G.errorSaved, res, 500);
         }
         await result.loadCountry();
+
         return R.response(true, result.toDisplay(), res, 200);
     } catch (error) {
         return R.handleError(res, error.message, 500);
@@ -143,7 +144,7 @@ router.post("/add", async (req, res) => {
 });
 router.get("/all", async (req, res) => {
     try {
-        const result = await Company.getAllWithCountry();
+        const result = await Company.getAllCompany();
         if (!result) {
             return R.response(false, G.errorId, res, 500);
         }

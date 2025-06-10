@@ -72,15 +72,5 @@ router.put("/blocked", async (req, res) => {
         return R.handleError(res, error.message, 500);
     }
 })
-router.put("/Removed", async (req, res) => {
-    const { account } = req.body;
-    try {
-        if (!account || typeof account !== 'number' || isNaN(account) || account.toString().length < 6) {
-            return R.handleError(res, `${G.errorDataVerification}: account`, 400);
-        }
-    } catch (error){
-        return R.handleError(res, error.message, 500);
-    }
-})
 
 module.exports = router;

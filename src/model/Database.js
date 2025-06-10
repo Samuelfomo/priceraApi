@@ -510,7 +510,8 @@ class Database {
             }
 
             throw error;
-        } finally {
+        }
+        finally {
             // Fermer la connexion
             if (sequelize) {
                 try {

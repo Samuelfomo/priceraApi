@@ -196,11 +196,9 @@ class CompanyModel extends Database {
                     required: true
                 }]
             };
-
             if (options.isTransaction || this._isTransactionActive) {
                 queryOptions.transaction = connection;
             }
-
             const result = await this.model.findOne(queryOptions);
             return result ? result.toJSON() : null;
         } catch (error) {
@@ -231,13 +229,10 @@ class CompanyModel extends Database {
                 }],
                 distinct: true
             };
-
             if (options.isTransaction || this._isTransactionActive) {
                 findOptions.transaction = connection;
             }
-
             const { count, rows } = await this.model.findAndCountAll(findOptions);
-
             return {
                 data: rows.map(row => row.toJSON()),
                 pagination: {page, limit, total: count, pages: Math.ceil(count / limit)
@@ -310,18 +305,15 @@ class CompanyModel extends Database {
             const { connection } = await this.getConnection(options);
             const { Op } = require("sequelize");
             const whereClause = {};
-
             if (operator === 'OR') {
                 whereClause[Op.or] = criteria;
             } else {
                 Object.assign(whereClause, criteria);
             }
-
             const queryOptions = { where: whereClause };
             if (options.isTransaction || this._isTransactionActive) {
                 queryOptions.transaction = connection;
             }
-
             const results = await this.model.findAll(queryOptions);
             return results.map(result => result.toJSON());
         } catch (error) {
@@ -483,39 +475,16 @@ class CompanyModel extends Database {
     async findAll(queryOptions = {}, options = {}) {
         try {
             const { connection } = await this.getConnection(options);
-            const {
-                page = 1,
-                limit = 10,
-                where = {},
-                order = [['id', 'ASC']],
-                include = []
-            } = queryOptions;
-
+            const { page = 1, limit = 10, where = {}, order = [['id', 'ASC']], include = [] } = queryOptions;
             const offset = (page - 1) * limit;
-
-            const findOptions = {
-                where,
-                order,
-                limit,
-                offset,
-                include,
-                distinct: true
-            };
-
+            const findOptions = { where, order, limit, offset, include, distinct: true };
             if (options.isTransaction || this._isTransactionActive) {
                 findOptions.transaction = connection;
             }
-
             const { count, rows } = await this.model.findAndCountAll(findOptions);
-
             return {
                 data: rows.map(row => row.toJSON()),
-                pagination: {
-                    page,
-                    limit,
-                    total: count,
-                    pages: Math.ceil(count / limit)
-                }
+                pagination: { page, limit, total: count, pages: Math.ceil(count / limit) }
             };
         } catch (error) {
             console.error('Erreur lors de la recherche paginée:', error);
@@ -567,7 +536,6 @@ class CompanyModel extends Database {
     async findByRadius(centerLng, centerLat, radiusKm, options = {}) {
         try {
             const { connection } = await this.getConnection(options);
-
             const queryOptions = {
                 where: this.getInstance().literal(`
                     (6371 * acos(
@@ -579,11 +547,9 @@ class CompanyModel extends Database {
                     )) <= ${radiusKm}
                 `)
             };
-
             if (options.isTransaction || this._isTransactionActive) {
                 queryOptions.transaction = connection;
             }
-
             const results = await this.model.findAll(queryOptions);
             return results.map(result => result.toJSON());
         } catch (error) {
@@ -608,7 +574,6 @@ class CompanyModel extends Database {
     async findNearest(lng, lat, limit = 10, options = {}) {
         try {
             const { connection } = await this.getConnection(options);
-
             const queryOptions = {
                 attributes: {
                     include: [
@@ -629,11 +594,9 @@ class CompanyModel extends Database {
                 order: this.getInstance().literal('distance ASC'),
                 limit: limit
             };
-
             if (options.isTransaction || this._isTransactionActive) {
                 queryOptions.transaction = connection;
             }
-
             const results = await this.model.findAll(queryOptions);
             return results.map(result => result.toJSON());
         } catch (error) {
@@ -660,18 +623,15 @@ class CompanyModel extends Database {
     async findByCity(city, options = {}) {
         try {
             const { connection } = await this.getConnection(options);
-
             const queryOptions = {
                 where: this.getInstance().where(
                     this.getInstance().json('address.city'),
                     city
                 )
             };
-
             if (options.isTransaction || this._isTransactionActive) {
                 queryOptions.transaction = connection;
             }
-
             const results = await this.model.findAll(queryOptions);
             return results.map(result => result.toJSON());
         } catch (error) {
@@ -694,18 +654,15 @@ class CompanyModel extends Database {
     async findByDomaine(domaine, options = {}) {
         try {
             const { connection } = await this.getConnection(options);
-
             const queryOptions = {
                 where: this.getInstance().where(
                     this.getInstance().json('metadata.domaine'),
                     domaine
                 )
             };
-
             if (options.isTransaction || this._isTransactionActive) {
                 queryOptions.transaction = connection;
             }
-
             const results = await this.model.findAll(queryOptions);
             return results.map(result => result.toJSON());
         } catch (error) {
@@ -728,18 +685,15 @@ class CompanyModel extends Database {
     async findBySector(sector, options = {}) {
         try {
             const { connection } = await this.getConnection(options);
-
             const queryOptions = {
                 where: this.getInstance().where(
                     this.getInstance().json('metadata.sector'),
                     sector
                 )
             };
-
             if (options.isTransaction || this._isTransactionActive) {
                 queryOptions.transaction = connection;
             }
-
             const results = await this.model.findAll(queryOptions);
             return results.map(result => result.toJSON());
         } catch (error) {
@@ -764,25 +718,20 @@ class CompanyModel extends Database {
         try {
             const { connection } = await this.getConnection(options);
             const { Op } = require("sequelize");
-
             const conditions = {
                 [Op.and]: [
                     this.getInstance().where(this.getInstance().json('address.city'), city)
                 ]
             };
-
             if (location) {
                 conditions[Op.and].push(
                     this.getInstance().where(this.getInstance().json('address.location'), location)
                 );
             }
-
             const queryOptions = { where: conditions };
-
             if (options.isTransaction || this._isTransactionActive) {
                 queryOptions.transaction = connection;
             }
-
             const results = await this.model.findAll(queryOptions);
             return results.map(result => result.toJSON());
         } catch (error) {
@@ -807,12 +756,9 @@ class CompanyModel extends Database {
      */
     extractCoordinatesFromPoint(point) {
         if (!point) return null;
-
         const pointRegex = /^POINT\((-?\d+\.?\d*)\s+(-?\d+\.?\d*)\)$/i;
         const matches = point.match(pointRegex);
-
         if (!matches) return null;
-
         return {
             longitude: parseFloat(matches[1]),
             latitude: parseFloat(matches[2])
@@ -827,7 +773,6 @@ class CompanyModel extends Database {
      */
     calculateDistance(coord1, coord2) {
         if (!coord1 || !coord2) return null;
-
         const R = 6371; // Earth radius in kilometers
         const dLat = (coord2.latitude - coord1.latitude) * Math.PI / 180;
         const dLon = (coord2.longitude - coord1.longitude) * Math.PI / 180;

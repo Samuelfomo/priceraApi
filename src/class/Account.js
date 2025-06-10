@@ -22,6 +22,14 @@ class Account {
         this.created = data.created || null;
         this.updated = data.updated || null;
         this.companyObject = data.companyObject || null;
+        const Company = require('./Company');
+        if (data.companyData) {
+            this.companyObject = new Company(data.companyData);
+        } else if (data.countryObject) {
+            this.companyObject = new Company(data.companyObject);
+        } else {
+            this.companyObject = null;
+        }
     }
 
     // ===========================
@@ -106,7 +114,7 @@ class Account {
             throw error;
         }
     }
-    // static async getAllWithCountry(queryOptions = {}) {
+    // static async getAllCompany(queryOptions = {}) {
     //     try {
     //         const result = await CompanyModel.findAllWithCountry(queryOptions);
     //
@@ -185,6 +193,21 @@ class Account {
 
         } catch (error) {
             Logger.logError('Failed to get account by GUID:', error);
+            throw error;
+        }
+    }
+    static async getByAttribut(attribut, value) {
+        try {
+            if (!attribut) throw new Error('Attribut is required');
+            if (!value) throw new Error('value is required');
+
+            const accountData = await AccountModel.findByAttribute(attribut, value);
+            if (!accountData) throw new Error('Account not found');
+
+            return new Account(accountData);
+
+        } catch (error) {
+            Logger.logError('Failed to get account:', error);
             throw error;
         }
     }
@@ -540,7 +563,7 @@ class Account {
             status: this.statusText,
             company: this.companyObject ? this.companyObject.toDisplay() : { id: this.company },
             // company: this.company,
-            lastLogin: this.lastLogin
+            lastLogin: this.lastLogin,
         };
     }
 

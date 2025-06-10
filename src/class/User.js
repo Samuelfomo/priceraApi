@@ -1,6 +1,10 @@
-const G = require("../tools/Glossary");
 const UserModel = require("../model/UserModel");
 const Logger = require("../tools/logger");
+const AccountModel = require("../model/AccountModel");
+const ProfilModel = require("../model/ProfilModel");
+const Account = require("./Account");
+const Profil = require("./Profil");
+
 
 class User {
     constructor(options = {}) {
@@ -15,8 +19,35 @@ class User {
         this.updated = options.updated || null;
 
         // Données associées
-        this.accountData = options.accountData || null;
-        this.profilData = options.profilData || null;
+        this.accountObject = options.accountObject || {};
+        this.profilObject = options.profilObject || {};
+        if (options.accountData) {
+            this.accountObject = new Account(options.accountData);
+        }
+        else if (options.accountObject) {
+            this.accountObject = new Account(options.accountObject);
+        }
+        else {
+            this.accountObject = null;
+        }
+        if (options.profilData) {
+            this.profilObject = new Profil(options.profilData);
+        }
+        else if (options.profilObject) {
+            this.profilObject = new Profil(options.profilObject);
+        }
+        else {
+            this.profilObject = null;
+        }
+        /*
+         if (data.companyData) {
+            this.companyObject = new Company(data.companyData);
+        } else if (data.countryObject) {
+            this.companyObject = new Company(data.companyObject);
+        } else {
+            this.companyObject = null;
+        }
+         */
     }
 
     // ================================
@@ -59,12 +90,12 @@ class User {
         return this.updated;
     }
 
-    getAccountData() {
-        return this.accountData;
+    getaccountObject() {
+        return this.accountObject;
     }
 
-    getProfilData() {
-        return this.profilData;
+    getprofilObject() {
+        return this.profilObject;
     }
 
     // ================================
@@ -135,13 +166,13 @@ class User {
         return this;
     }
 
-    setAccountData(accountData) {
-        this.accountData = accountData;
+    setaccountObject(accountObject) {
+        this.accountObject = accountObject;
         return this;
     }
 
-    setProfilData(profilData) {
-        this.profilData = profilData;
+    setprofilObject(profilObject) {
+        this.profilObject = profilObject;
         return this;
     }
 
@@ -168,8 +199,14 @@ class User {
             errors.push('Valid account ID is required');
         }
 
-        if (!this.mobile || !Number.isInteger(this.mobile) || this.mobile <= 0) {
-            errors.push('Valid mobile number is required');
+        if (!this.mobile) {
+            errors.push('mobile number is required');
+        }else {
+            const regexNumberCam = /^(\+237|237)?6(2[0]\d{6}|[5-9]\d{7})$/;
+            const cleanedPhoneNumber = this.mobile.toString().replace(/\s+/g, '');
+            if (!regexNumberCam.test(cleanedPhoneNumber)) {
+                errors.push('Invalid mobile number format');
+            }
         }
 
         if (!this.email || !this.email.trim()) {
@@ -220,22 +257,22 @@ class User {
             email: this.email,
             created: this.created,
             updated: this.updated,
-            accountData: this.accountData,
-            profilData: this.profilData
+            accountObject: this.accountObject,
+            profilObject: this.profilObject
         };
     }
     toDisplay(){
         return {
             guid: this.guid,
             name: this.name,
-            profil: this.profil,
-            account: this.account,
+            // profil: this.profil,
+            // account: this.account,
             mobile: this.mobile,
             email: this.email,
-            created: this.created,
-            updated: this.updated,
-            accountData: this.accountData,
-            profilData: this.profilData
+            // created: this.created,
+            // updated: this.updated,
+            accountObject: this.accountObject? this.accountObject.toDisplay() : {id: this.account},
+            profilObject: this.profilObject? this.profilObject.toDisplay() : {id: this.profil},
         }
     }
 
@@ -252,7 +289,7 @@ class User {
      * @returns {boolean}
      */
     isNew() {
-        return !this.id;
+        return !this.guid;
     }
 
     /**
@@ -312,7 +349,7 @@ class User {
      * @returns {boolean}
      */
     hasCompleteAssociations() {
-        return !!(this.accountData && this.profilData);
+        return !!(this.accountObject && this.profilObject);
     }
 
     // ================================
@@ -337,8 +374,8 @@ class User {
             email: dbData.email,
             created: dbData.created,
             updated: dbData.updated,
-            accountData: dbData.accountData,
-            profilData: dbData.profilData
+            accountObject: dbData.accountObject,
+            profilObject: dbData.profilObject
         });
     }
 
@@ -378,8 +415,15 @@ class User {
      * @returns {boolean}
      */
     static isValidMobile(mobile) {
-        return mobile && Number.isInteger(mobile) && mobile > 0;
+        if (typeof mobile !== 'string' && typeof mobile !== 'number') {
+            return false;
+        }
+
+        const regexNumberCam = /^(\+237|237)?6(2[0]\d{6}|[5-9]\d{7})$/;
+        const cleanedPhoneNumber = mobile.toString().replace(/\s+/g, '');
+        return regexNumberCam.test(cleanedPhoneNumber);
     }
+
 
     // ================================
     // MÉTHODES D'ACCÈS AUX DONNÉES
@@ -400,19 +444,21 @@ class User {
             let result;
             if (this.isNew()) {
                 result = await UserModel.create(this.toModelData(), options);
-                Logger.logInfo(`User created with ID: ${result.id}`);
             } else {
+                const findUser = await UserModel.findByAttribute("guid", this.guid);
+                if (!findUser) {
+                    throw new Error(`user updated doesn't exist`);
+                }
+                this.id = findUser.id;
                 result = await UserModel.update(this.id, this.toModelData(), options);
-                Logger.logInfo(`User updated with ID: ${this.id}`);
             }
 
-            if (result) {
-                this.id = result.id;
-                this.guid = result.guid;
-                this.created = result.created;
-                this.updated = result.updated;
-            }
-
+            // if (result) {
+            //     this.id = result.id;
+            //     this.guid = result.guid;
+            //     this.created = result.created;
+            //     this.updated = result.updated;
+            // }
             return this;
         } catch (error) {
             Logger.logError('Error saving user:', error);
@@ -465,34 +511,93 @@ class User {
 
     /**
      * Charge les données associées (account et profil)
-     * @param {Object} options - Options de connexion
-     * @returns {Promise<User>}
+     * @returns {Promise<*|{}|User|null>}
      */
-    async loadAssociations(options = {}) {
+    async loadAssociations() {
+        if (this.accountObject) {
+            this.accountObject = new Account(this.accountObject)
+        }
+        if (this.profilObject) {
+            this.profilObject = new Profil(this.profilObject)
+        }
         try {
-            if (!this.id) {
-                throw new Error('Cannot load associations without user ID');
-            }
+            // if (!this.id) {
+            //     throw new Error('Cannot load associations without user ID');
+            // }
+            if (!this.account) return null;
+            if (!this.profil) return null;
 
             // Cette méthode nécessiterait une méthode spécifique dans UserModel
             // pour charger un utilisateur avec ses associations
-            const AccountModel = require("../model/AccountModel");
-            const ProfilModel = require("../model/ProfilModel");
+
 
             if (this.account) {
-                this.accountData = await AccountModel.find(this.account, options);
+                const accountObjectResponse = await AccountModel.findWithCompany(this.account);
+                if (!accountObjectResponse) {
+                    return null;
+                }
+                this.accountObject = new Account(accountObjectResponse);
+                // this.accountObject = await AccountModel.find(this.account, options);
             }
 
             if (this.profil) {
-                this.profilData = await ProfilModel.find(this.profil, options);
+                const profilObjectResponse = await ProfilModel.find(this.profil);
+                if (!profilObjectResponse) {
+                    return null;
+                }
+                this.profilObject  = new Profil(profilObjectResponse);
+                // this.profilObject = await ProfilModel.find(this.profil, options);
             }
 
-            return this;
+            // console.log(this.toDisplay());
+            return this.toDisplay();
         } catch (error) {
             Logger.logError('Error loading user associations:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Get paginated users
+     * @param {Object} queryOptions - Query options
+     * @returns {Promise<Object>}
+     */
+    // static async getAll(queryOptions = {}) {
+    //     try {
+    //         const result = await UserModel.findAll(queryOptions);
+    //         return {
+    //             data: result.data.map(data => new User(data).toDisplay()),
+    //             pagination: result.pagination
+    //         };
+    //     } catch (error) {
+    //         Logger.logError('Failed to get all profils:', error);
+    //         throw error;
+    //     }
+    // }
+
+    static async getAllWithAssociation(queryOptions = {}) {
+        try {
+            const result = await UserModel.findAllWithAccount(queryOptions);
+
+            // Charger les Associations pour chaque User
+            const accountWithAssociation = await Promise.all(
+                result.data.map(async (userData) => {
+                    const user = new User(userData);
+                    await user.loadAssociations();
+                    return user.toDisplay();
+                })
+            );
+
+            return {
+                data: accountWithAssociation,
+                pagination: result.pagination
+            };
+        } catch (error) {
+            Logger.logError('Failed to get all users with association:', error);
             throw error;
         }
     }
+
 }
 
 module.exports = User;
